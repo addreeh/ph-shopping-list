@@ -2,21 +2,26 @@
 
 import type React from "react"
 
-import { authManager } from "@/lib/auth"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { createBrowserClient } from "@supabase/ssr"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 
 export default function Page() {
-  const [username, setUsername] = useState("")
+  const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
+
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  )
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -24,18 +29,21 @@ export default function Page() {
     setError(null)
 
     try {
-      const { user, error: authError } = await authManager.login(username.trim(), password)
+      const { data, error: authError } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      })
 
       if (authError) {
-        setError(authError)
+        setError(authError.message)
         return
       }
 
-      if (user) {
+      if (data.user) {
         router.push("/dashboard")
       }
     } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "Usuario o contraseña incorrectos")
+      setError(error instanceof Error ? error.message : "Error al iniciar sesión")
     } finally {
       setIsLoading(false)
     }
@@ -48,20 +56,20 @@ export default function Page() {
           <Card>
             <CardHeader>
               <CardTitle className="text-2xl">Bienvenido de vuelta</CardTitle>
-              <CardDescription>Ingresa tu usuario y contraseña</CardDescription>
+              <CardDescription>Ingresa tu email y contraseña</CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleLogin}>
                 <div className="flex flex-col gap-6">
                   <div className="grid gap-2">
-                    <Label htmlFor="username">Nombre de usuario</Label>
+                    <Label htmlFor="email">Email</Label>
                     <Input
-                      id="username"
-                      type="text"
-                      placeholder="papa, mama, juan..."
+                      id="email"
+                      type="email"
+                      placeholder="tu@email.com"
                       required
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
                     />
                   </div>
                   <div className="grid gap-2">

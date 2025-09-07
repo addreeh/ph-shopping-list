@@ -2,23 +2,28 @@
 
 import type React from "react"
 
-import { authManager } from "@/lib/auth"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { createBrowserClient } from "@supabase/ssr"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 
 export default function Page() {
+  const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [repeatPassword, setRepeatPassword] = useState("")
-  const [username, setUsername] = useState("")
   const [displayName, setDisplayName] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
+
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  )
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -31,12 +36,6 @@ export default function Page() {
       return
     }
 
-    if (!username.trim()) {
-      setError("El nombre de usuario es requerido")
-      setIsLoading(false)
-      return
-    }
-
     if (password.length < 6) {
       setError("La contraseña debe tener al menos 6 caracteres")
       setIsLoading(false)
@@ -44,22 +43,27 @@ export default function Page() {
     }
 
     try {
-      const { user, error: authError } = await authManager.register(
-        username.trim(),
-        displayName.trim() || username.trim(),
+      const { data, error: authError } = await supabase.auth.signUp({
+        email: email.trim(),
         password,
-      )
+        options: {
+          emailRedirectTo: process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || window.location.origin,
+          data: {
+            display_name: displayName.trim() || email.split("@")[0],
+          },
+        },
+      })
 
       if (authError) {
-        setError(authError)
+        setError(authError.message)
         return
       }
 
-      if (user) {
-        router.push("/dashboard")
+      if (data.user) {
+        router.push("/auth/sign-up-success")
       }
     } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "Ocurrió un error")
+      setError(error instanceof Error ? error.message : "Error al crear la cuenta")
     } finally {
       setIsLoading(false)
     }
@@ -72,20 +76,20 @@ export default function Page() {
           <Card>
             <CardHeader>
               <CardTitle className="text-2xl">Únete a la familia</CardTitle>
-              <CardDescription>Solo necesitas un nombre de usuario y contraseña</CardDescription>
+              <CardDescription>Crea tu cuenta familiar</CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSignUp}>
                 <div className="flex flex-col gap-6">
                   <div className="grid gap-2">
-                    <Label htmlFor="username">Nombre de usuario</Label>
+                    <Label htmlFor="email">Email</Label>
                     <Input
-                      id="username"
-                      type="text"
-                      placeholder="papa, mama, juan..."
+                      id="email"
+                      type="email"
+                      placeholder="tu@email.com"
                       required
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
                     />
                   </div>
                   <div className="grid gap-2">
