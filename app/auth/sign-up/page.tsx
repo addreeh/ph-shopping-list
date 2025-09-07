@@ -12,7 +12,6 @@ import { useRouter } from "next/navigation"
 import { useState } from "react"
 
 export default function Page() {
-  const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [repeatPassword, setRepeatPassword] = useState("")
   const [username, setUsername] = useState("")
@@ -39,9 +38,17 @@ export default function Page() {
       return
     }
 
+    if (password.length < 6) {
+      setError("La contraseña debe tener al menos 6 caracteres")
+      setIsLoading(false)
+      return
+    }
+
     try {
+      const generatedEmail = `${username.toLowerCase().replace(/\s+/g, "")}@familia.local`
+
       const { error } = await supabase.auth.signUp({
-        email,
+        email: generatedEmail,
         password,
         options: {
           emailRedirectTo: process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || `${window.location.origin}/dashboard`,
@@ -67,7 +74,7 @@ export default function Page() {
           <Card>
             <CardHeader>
               <CardTitle className="text-2xl">Únete a la familia</CardTitle>
-              <CardDescription>Crea tu cuenta para gestionar la lista de compras familiar</CardDescription>
+              <CardDescription>Solo necesitas un nombre de usuario y contraseña</CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSignUp}>
@@ -77,14 +84,14 @@ export default function Page() {
                     <Input
                       id="username"
                       type="text"
-                      placeholder="papa, mama, hijo1..."
+                      placeholder="papa, mama, juan..."
                       required
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
                     />
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="displayName">Nombre para mostrar (opcional)</Label>
+                    <Label htmlFor="displayName">¿Cómo te llamamos? (opcional)</Label>
                     <Input
                       id="displayName"
                       type="text"
@@ -94,23 +101,13 @@ export default function Page() {
                     />
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="m@ejemplo.com"
-                      required
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                    />
-                  </div>
-                  <div className="grid gap-2">
                     <div className="flex items-center">
                       <Label htmlFor="password">Contraseña</Label>
                     </div>
                     <Input
                       id="password"
                       type="password"
+                      placeholder="Mínimo 6 caracteres"
                       required
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
@@ -123,6 +120,7 @@ export default function Page() {
                     <Input
                       id="repeat-password"
                       type="password"
+                      placeholder="Repite la contraseña"
                       required
                       value={repeatPassword}
                       onChange={(e) => setRepeatPassword(e.target.value)}

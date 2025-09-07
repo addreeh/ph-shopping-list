@@ -12,7 +12,7 @@ import { useRouter } from "next/navigation"
 import { useState } from "react"
 
 export default function Page() {
-  const [email, setEmail] = useState("")
+  const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -25,8 +25,10 @@ export default function Page() {
     setError(null)
 
     try {
+      const generatedEmail = `${username.toLowerCase().replace(/\s+/g, "")}@familia.local`
+
       const { error } = await supabase.auth.signInWithPassword({
-        email,
+        email: generatedEmail,
         password,
         options: {
           emailRedirectTo: process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || `${window.location.origin}/dashboard`,
@@ -35,7 +37,7 @@ export default function Page() {
       if (error) throw error
       router.push("/dashboard")
     } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "Ocurrió un error")
+      setError(error instanceof Error ? error.message : "Usuario o contraseña incorrectos")
     } finally {
       setIsLoading(false)
     }
@@ -48,20 +50,20 @@ export default function Page() {
           <Card>
             <CardHeader>
               <CardTitle className="text-2xl">Bienvenido de vuelta</CardTitle>
-              <CardDescription>Ingresa tu email para acceder a la lista familiar</CardDescription>
+              <CardDescription>Ingresa tu usuario y contraseña</CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleLogin}>
                 <div className="flex flex-col gap-6">
                   <div className="grid gap-2">
-                    <Label htmlFor="email">Email</Label>
+                    <Label htmlFor="username">Nombre de usuario</Label>
                     <Input
-                      id="email"
-                      type="email"
-                      placeholder="m@ejemplo.com"
+                      id="username"
+                      type="text"
+                      placeholder="papa, mama, juan..."
                       required
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
                     />
                   </div>
                   <div className="grid gap-2">
@@ -69,6 +71,7 @@ export default function Page() {
                     <Input
                       id="password"
                       type="password"
+                      placeholder="Tu contraseña"
                       required
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
