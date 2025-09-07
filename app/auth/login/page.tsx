@@ -2,11 +2,11 @@
 
 import type React from "react"
 
+import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { createBrowserClient } from "@supabase/ssr"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
@@ -18,32 +18,24 @@ export default function Page() {
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
 
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  )
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
+    const supabase = createClient()
     setIsLoading(true)
     setError(null)
 
     try {
-      const { data, error: authError } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
         password,
+        options: {
+          emailRedirectTo: process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || `${window.location.origin}/dashboard`,
+        },
       })
-
-      if (authError) {
-        setError(authError.message)
-        return
-      }
-
-      if (data.user) {
-        router.push("/dashboard")
-      }
+      if (error) throw error
+      router.push("/dashboard")
     } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "Error al iniciar sesión")
+      setError(error instanceof Error ? error.message : "Ocurrió un error")
     } finally {
       setIsLoading(false)
     }
@@ -56,7 +48,7 @@ export default function Page() {
           <Card>
             <CardHeader>
               <CardTitle className="text-2xl">Bienvenido de vuelta</CardTitle>
-              <CardDescription>Ingresa tu email y contraseña</CardDescription>
+              <CardDescription>Ingresa tu email para acceder a la lista familiar</CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleLogin}>
@@ -66,7 +58,7 @@ export default function Page() {
                     <Input
                       id="email"
                       type="email"
-                      placeholder="tu@email.com"
+                      placeholder="m@ejemplo.com"
                       required
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
@@ -77,7 +69,6 @@ export default function Page() {
                     <Input
                       id="password"
                       type="password"
-                      placeholder="Tu contraseña"
                       required
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
