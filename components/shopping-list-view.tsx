@@ -11,9 +11,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
-import { ArrowLeft, Plus, ShoppingCart, Trash2, RotateCcw, Save, Bell, BellOff } from "lucide-react"
+import {
+  ArrowLeft,
+  Plus,
+  ShoppingCart,
+  Trash2,
+  RotateCcw,
+  Save,
+  Bell,
+  BellOff,
+  ChevronDown,
+  ChevronRight,
+} from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { requestNotificationPermission, sendNotification, getNotificationPermission } from "@/lib/notifications" // Import the requestNotificationPermission function
 
 interface ShoppingListViewProps {
   activeList: any
@@ -41,16 +53,46 @@ export function ShoppingListView({
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [notificationsEnabled, setNotificationsEnabled] = useState(false)
+  const [expandedSupermarkets, setExpandedSupermarkets] = useState<Set<string>>(new Set())
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set())
   const supabase = createClient()
   const router = useRouter()
 
   const supermarkets = ["Mercadona", "Family Cash", "Lidl"]
 
   useEffect(() => {
-    if ("Notification" in window) {
-      setNotificationsEnabled(Notification.permission === "granted")
+    setNotificationsEnabled(getNotificationPermission() === "granted")
+
+    const savedSupermarkets = localStorage.getItem("expandedSupermarkets")
+    const savedSections = localStorage.getItem("expandedSections")
+
+    if (savedSupermarkets) {
+      setExpandedSupermarkets(new Set(JSON.parse(savedSupermarkets)))
+    } else {
+      const allSupermarkets = Object.keys(itemsBySupermartAndSection)
+      setExpandedSupermarkets(new Set(allSupermarkets))
+    }
+
+    if (savedSections) {
+      setExpandedSections(new Set(JSON.parse(savedSections)))
+    } else {
+      const allSections: string[] = []
+      Object.entries(itemsBySupermartAndSection).forEach(([supermarket, sectionGroups]) => {
+        Object.keys(sectionGroups).forEach((sectionName) => {
+          allSections.push(`${supermarket}-${sectionName}`)
+        })
+      })
+      setExpandedSections(new Set(allSections))
     }
   }, [])
+
+  useEffect(() => {
+    localStorage.setItem("expandedSupermarkets", JSON.stringify(Array.from(expandedSupermarkets)))
+  }, [expandedSupermarkets])
+
+  useEffect(() => {
+    localStorage.setItem("expandedSections", JSON.stringify(Array.from(expandedSections)))
+  }, [expandedSections])
 
   const itemsBySupermartAndSection = items.reduce((acc, item) => {
     const supermarket = item.supermarket || "Sin asignar"
@@ -66,20 +108,25 @@ export function ShoppingListView({
     return acc
   }, {})
 
-  const filteredSuggestions = frequentItems.filter((item) => item.name.toLowerCase().includes(searchTerm.toLowerCase()))
-
-  const requestNotificationPermission = async () => {
-    if ("Notification" in window) {
-      const permission = await Notification.requestPermission()
-      setNotificationsEnabled(permission === "granted")
-
-      if (permission === "granted") {
-        new Notification("Lista Familiar", {
-          body: "Notificaciones activadas para tu lista de compras",
-          icon: "/icon-192.jpg",
-        })
-      }
+  const toggleSupermarket = (supermarket: string) => {
+    const newExpanded = new Set(expandedSupermarkets)
+    if (newExpanded.has(supermarket)) {
+      newExpanded.delete(supermarket)
+    } else {
+      newExpanded.add(supermarket)
     }
+    setExpandedSupermarkets(newExpanded)
+  }
+
+  const toggleSection = (supermarket: string, sectionName: string) => {
+    const sectionKey = `${supermarket}-${sectionName}`
+    const newExpanded = new Set(expandedSections)
+    if (newExpanded.has(sectionKey)) {
+      newExpanded.delete(sectionKey)
+    } else {
+      newExpanded.add(sectionKey)
+    }
+    setExpandedSections(newExpanded)
   }
 
   const addItem = async (itemData: any) => {
@@ -107,10 +154,9 @@ export function ShoppingListView({
 
       setItems((prev) => [...prev, data])
 
-      if (notificationsEnabled && "Notification" in window) {
-        new Notification("Producto añadido", {
+      if (notificationsEnabled) {
+        sendNotification("Producto añadido", {
           body: `${itemData.name} se añadió a la lista${itemData.supermarket ? ` (${itemData.supermarket})` : ""}`,
-          icon: "/icon-192.jpg",
           tag: "item-added",
         })
       }
@@ -166,12 +212,11 @@ export function ShoppingListView({
         ),
       )
 
-      if (isPurchased && notificationsEnabled && "Notification" in window) {
+      if (isPurchased && notificationsEnabled) {
         const item = items.find((i) => i.id === itemId)
         if (item) {
-          new Notification("Producto comprado", {
+          sendNotification("Producto comprado", {
             body: `${item.name} marcado como comprado`,
-            icon: "/icon-192.jpg",
             tag: "item-purchased",
           })
         }
@@ -298,7 +343,14 @@ export function ShoppingListView({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={notificationsEnabled ? () => setNotificationsEnabled(false) : requestNotificationPermission}
+                onClick={async () => {
+                  if (notificationsEnabled) {
+                    setNotificationsEnabled(false)
+                  } else {
+                    const granted = await requestNotificationPermission()
+                    setNotificationsEnabled(granted)
+                  }
+                }}
               >
                 {notificationsEnabled ? <Bell className="h-4 w-4" /> : <BellOff className="h-4 w-4" />}
               </Button>
@@ -447,17 +499,20 @@ export function ShoppingListView({
               />
             </div>
             <div className="flex flex-wrap gap-2">
-              {filteredSuggestions.slice(0, 10).map((item) => (
-                <Button
-                  key={item.id}
-                  variant="outline"
-                  size="sm"
-                  onClick={() => addFromSuggestion(item)}
-                  className="text-xs"
-                >
-                  {item.section?.icon} {item.name} {item.supermarket && `(${item.supermarket})`}
-                </Button>
-              ))}
+              {frequentItems
+                .filter((item) => item.name.toLowerCase().includes(searchTerm.toLowerCase()))
+                .slice(0, 10)
+                .map((item) => (
+                  <Button
+                    key={item.id}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => addFromSuggestion(item)}
+                    className="text-xs"
+                  >
+                    {item.section?.icon} {item.name} {item.supermarket && `(${item.supermarket})`}
+                  </Button>
+                ))}
             </div>
           </div>
         </div>
@@ -468,11 +523,20 @@ export function ShoppingListView({
           const supermarketItems = Object.values(sectionGroups).flat()
           const supermarketPurchased = supermarketItems.filter((item: any) => item.is_purchased).length
           const supermarketTotal = supermarketItems.length
+          const isExpanded = expandedSupermarkets.has(supermarket)
 
           return (
             <div key={supermarket} className="space-y-4">
               <div className="flex items-center justify-between p-4 bg-primary/5 rounded-lg border-2 border-primary/20">
                 <div className="flex items-center gap-3">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => toggleSupermarket(supermarket)}
+                    className="p-1 h-auto"
+                  >
+                    {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                  </Button>
                   <h2 className="text-xl font-bold text-primary">🏪 {supermarket}</h2>
                   <Badge variant="secondary" className="bg-primary/10">
                     {supermarketPurchased}/{supermarketTotal}
@@ -490,75 +554,95 @@ export function ShoppingListView({
                 )}
               </div>
 
-              <div className="space-y-4 ml-4">
-                {Object.entries(sectionGroups).map(([sectionName, sectionItems]: [string, any]) => {
-                  const section = sections.find((s) => s.name === sectionName)
-                  const sectionPurchased = sectionItems.filter((item: any) => item.is_purchased).length
-                  const sectionTotal = sectionItems.length
+              {isExpanded && (
+                <div className="space-y-4 ml-4">
+                  {Object.entries(sectionGroups).map(([sectionName, sectionItems]: [string, any]) => {
+                    const section = sections.find((s) => s.name === sectionName)
+                    const sectionPurchased = sectionItems.filter((item: any) => item.is_purchased).length
+                    const sectionTotal = sectionItems.length
+                    const sectionKey = `${supermarket}-${sectionName}`
+                    const isSectionExpanded = expandedSections.has(sectionKey)
 
-                  return (
-                    <Card key={`${supermarket}-${sectionName}`}>
-                      <CardHeader className="pb-3">
-                        <div className="flex items-center justify-between">
-                          <CardTitle className="text-lg flex items-center gap-2">
-                            <span className="text-xl">{section?.icon || "📦"}</span>
-                            {sectionName}
-                          </CardTitle>
-                          <div className="flex items-center gap-2">
-                            <Badge variant="secondary">
-                              {sectionPurchased}/{sectionTotal}
-                            </Badge>
-                            {supermarket !== "Sin asignar" && (
+                    return (
+                      <Card key={`${supermarket}-${sectionName}`}>
+                        <CardHeader className="pb-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
                               <Button
+                                variant="ghost"
                                 size="sm"
-                                variant="outline"
-                                onClick={() => addItemWithSupermarket(supermarket, section?.id)}
+                                onClick={() => toggleSection(supermarket, sectionName)}
+                                className="p-1 h-auto"
                               >
-                                <Plus className="h-3 w-3" />
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        {sectionItems.map((item: any) => (
-                          <div
-                            key={item.id}
-                            className={`flex items-center gap-3 p-3 rounded-lg border ${
-                              item.is_purchased ? "bg-muted/50 opacity-60" : "bg-background"
-                            }`}
-                          >
-                            <Checkbox
-                              checked={item.is_purchased}
-                              onCheckedChange={(checked) => togglePurchased(item.id, checked as boolean)}
-                            />
-                            <div className="flex-1 min-w-0">
-                              <div className={`font-medium ${item.is_purchased ? "line-through" : ""}`}>
-                                {item.quantity} {item.unit} - {item.name}
-                              </div>
-                              {item.notes && <div className="text-sm text-muted-foreground">{item.notes}</div>}
-                              <div className="text-xs text-muted-foreground mt-1">
-                                Añadido por {item.added_by_profile?.display_name}
-                                {item.is_purchased && item.purchased_by_profile && (
-                                  <span> • Comprado por {item.purchased_by_profile.display_name}</span>
+                                {isSectionExpanded ? (
+                                  <ChevronDown className="h-3 w-3" />
+                                ) : (
+                                  <ChevronRight className="h-3 w-3" />
                                 )}
-                              </div>
+                              </Button>
+                              <CardTitle className="text-lg flex items-center gap-2">
+                                <span className="text-xl">{section?.icon || "📦"}</span>
+                                {sectionName}
+                              </CardTitle>
                             </div>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => deleteItem(item.id)}
-                              className="text-destructive hover:text-destructive"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            <div className="flex items-center gap-2">
+                              <Badge variant="secondary">
+                                {sectionPurchased}/{sectionTotal}
+                              </Badge>
+                              {supermarket !== "Sin asignar" && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => addItemWithSupermarket(supermarket, section?.id)}
+                                >
+                                  <Plus className="h-3 w-3" />
+                                </Button>
+                              )}
+                            </div>
                           </div>
-                        ))}
-                      </CardContent>
-                    </Card>
-                  )
-                })}
-              </div>
+                        </CardHeader>
+                        {isSectionExpanded && (
+                          <CardContent className="space-y-3">
+                            {sectionItems.map((item: any) => (
+                              <div
+                                key={item.id}
+                                className={`flex items-center gap-3 p-3 rounded-lg border ${
+                                  item.is_purchased ? "bg-muted/50 opacity-60" : "bg-background"
+                                }`}
+                              >
+                                <Checkbox
+                                  checked={item.is_purchased}
+                                  onCheckedChange={(checked) => togglePurchased(item.id, checked as boolean)}
+                                />
+                                <div className="flex-1 min-w-0">
+                                  <div className={`font-medium ${item.is_purchased ? "line-through" : ""}`}>
+                                    {item.quantity} {item.unit} - {item.name}
+                                  </div>
+                                  {item.notes && <div className="text-sm text-muted-foreground">{item.notes}</div>}
+                                  <div className="text-xs text-muted-foreground mt-1">
+                                    Añadido por {item.added_by_profile?.display_name}
+                                    {item.is_purchased && item.purchased_by_profile && (
+                                      <span> • Comprado por {item.purchased_by_profile.display_name}</span>
+                                    )}
+                                  </div>
+                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => deleteItem(item.id)}
+                                  className="text-destructive hover:text-destructive"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ))}
+                          </CardContent>
+                        )}
+                      </Card>
+                    )
+                  })}
+                </div>
+              )}
             </div>
           )
         })}
