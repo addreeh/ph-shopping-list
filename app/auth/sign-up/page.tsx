@@ -45,7 +45,7 @@ export default function Page() {
     }
 
     try {
-      const generatedEmail = `${username.toLowerCase().replace(/\s+/g, "")}@familia.local`
+      const generatedEmail = `${username.toLowerCase().replace(/\s+/g, "")}@example.com`
 
       const { error } = await supabase.auth.signUp({
         email: generatedEmail,
