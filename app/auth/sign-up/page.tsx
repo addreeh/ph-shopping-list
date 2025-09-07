@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { createClient } from "@/lib/supabase/client"
+import { authManager } from "@/lib/auth"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -22,7 +22,6 @@ export default function Page() {
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
-    const supabase = createClient()
     setIsLoading(true)
     setError(null)
 
@@ -45,21 +44,20 @@ export default function Page() {
     }
 
     try {
-      const generatedEmail = `${username.toLowerCase().replace(/\s+/g, "")}@example.com`
-
-      const { error } = await supabase.auth.signUp({
-        email: generatedEmail,
+      const { user, error: authError } = await authManager.register(
+        username.trim(),
+        displayName.trim() || username.trim(),
         password,
-        options: {
-          emailRedirectTo: process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || `${window.location.origin}/dashboard`,
-          data: {
-            username: username.trim(),
-            display_name: displayName.trim() || username.trim(),
-          },
-        },
-      })
-      if (error) throw error
-      router.push("/auth/sign-up-success")
+      )
+
+      if (authError) {
+        setError(authError)
+        return
+      }
+
+      if (user) {
+        router.push("/dashboard")
+      }
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "Ocurrió un error")
     } finally {

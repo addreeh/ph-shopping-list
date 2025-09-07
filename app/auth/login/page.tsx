@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { createClient } from "@/lib/supabase/client"
+import { authManager } from "@/lib/auth"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -20,22 +20,20 @@ export default function Page() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
-    const supabase = createClient()
     setIsLoading(true)
     setError(null)
 
     try {
-      const generatedEmail = `${username.toLowerCase().replace(/\s+/g, "")}@example.com`
+      const { user, error: authError } = await authManager.login(username.trim(), password)
 
-      const { error } = await supabase.auth.signInWithPassword({
-        email: generatedEmail,
-        password,
-        options: {
-          emailRedirectTo: process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || `${window.location.origin}/dashboard`,
-        },
-      })
-      if (error) throw error
-      router.push("/dashboard")
+      if (authError) {
+        setError(authError)
+        return
+      }
+
+      if (user) {
+        router.push("/dashboard")
+      }
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "Usuario o contraseña incorrectos")
     } finally {
