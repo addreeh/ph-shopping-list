@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -361,7 +361,7 @@ export function ShoppingListView({
                 <RotateCcw className="h-4 w-4" />
               </Button>
               <Dialog open={isAddingItem} onOpenChange={setIsAddingItem}>
-                <DialogTrigger asChild>
+                <DialogTrigger>
                   <Button size="sm">
                     <Plus className="h-4 w-4 mr-1" />
                     Añadir
@@ -526,141 +526,149 @@ export function ShoppingListView({
           const isExpanded = expandedSupermarkets.has(supermarket)
 
           return (
-            <div key={supermarket} className="space-y-4">
-              <div className="flex items-center justify-between p-4 bg-primary/5 rounded-lg border-2 border-primary/20">
-                <div className="flex items-center gap-3">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => toggleSupermarket(supermarket)}
-                    className="p-1 h-auto"
-                  >
-                    {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                  </Button>
-                  <h2 className="text-xl font-bold text-primary">🏪 {supermarket}</h2>
-                  <Badge variant="secondary" className="bg-primary/10">
-                    {supermarketPurchased}/{supermarketTotal}
-                  </Badge>
-                </div>
-                {supermarket !== "Sin asignar" && (
-                  <Button
-                    size="sm"
-                    onClick={() => addItemWithSupermarket(supermarket)}
-                    className="bg-primary/10 text-primary hover:bg-primary/20"
-                  >
-                    <Plus className="h-4 w-4 mr-1" />
-                    Añadir a {supermarket}
-                  </Button>
-                )}
-              </div>
+            <div key={supermarket} className="space-y-0">
+              <Card className="overflow-hidden border-2 border-primary/20">
+                <CardHeader className="pb-3 bg-primary/5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => toggleSupermarket(supermarket)}
+                        className="p-1 h-auto"
+                      >
+                        {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                      </Button>
+                      <h2 className="text-xl font-bold text-primary">🏪 {supermarket}</h2>
+                      <Badge variant="secondary" className="bg-primary/10">
+                        {supermarketPurchased}/{supermarketTotal}
+                      </Badge>
+                    </div>
+                    {supermarket !== "Sin asignar" && (
+                      <Button
+                        size="sm"
+                        onClick={() => addItemWithSupermarket(supermarket)}
+                        className="bg-primary/10 text-primary hover:bg-primary/20"
+                      >
+                        <Plus className="h-4 w-4 mr-1" />
+                        Añadir a {supermarket}
+                      </Button>
+                    )}
+                  </div>
+                </CardHeader>
 
-              {isExpanded && (
-                <div className="space-y-4 ml-4">
-                  {Object.entries(sectionGroups).map(([sectionName, sectionItems]: [string, any]) => {
-                    const section = sections.find((s) => s.name === sectionName)
-                    const sectionPurchased = sectionItems.filter((item: any) => item.is_purchased).length
-                    const sectionTotal = sectionItems.length
-                    const sectionKey = `${supermarket}-${sectionName}`
-                    const isSectionExpanded = expandedSections.has(sectionKey)
+                {isExpanded && (
+                  <CardContent className="p-0">
+                    {Object.entries(sectionGroups).map(([sectionName, sectionItems]: [string, any], index) => {
+                      const section = sections.find((s) => s.name === sectionName)
+                      const sectionPurchased = sectionItems.filter((item: any) => item.is_purchased).length
+                      const sectionTotal = sectionItems.length
+                      const sectionKey = `${supermarket}-${sectionName}`
+                      const isSectionExpanded = expandedSections.has(sectionKey)
+                      const isLastSection = index === Object.entries(sectionGroups).length - 1
 
-                    return (
-                      <Card key={`${supermarket}-${sectionName}`}>
-                        <CardHeader className="pb-3">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => toggleSection(supermarket, sectionName)}
-                                className="p-1 h-auto"
-                              >
-                                {isSectionExpanded ? (
-                                  <ChevronDown className="h-3 w-3" />
-                                ) : (
-                                  <ChevronRight className="h-3 w-3" />
-                                )}
-                              </Button>
-                              <CardTitle className="text-lg flex items-center gap-2">
-                                <span className="text-xl">{section?.icon || "📦"}</span>
-                                {sectionName}
-                              </CardTitle>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Badge variant="secondary">
-                                {sectionPurchased}/{sectionTotal}
-                              </Badge>
-                              {supermarket !== "Sin asignar" && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => addItemWithSupermarket(supermarket, section?.id)}
-                                >
-                                  <Plus className="h-3 w-3" />
-                                </Button>
-                              )}
-                            </div>
-                          </div>
-                        </CardHeader>
-                        {isSectionExpanded && (
-                          <CardContent className="space-y-3">
-                            {sectionItems.map((item: any) => (
-                              <div
-                                key={item.id}
-                                className={`flex items-center gap-3 p-3 rounded-lg border ${
-                                  item.is_purchased ? "bg-muted/50 opacity-60" : "bg-background"
-                                }`}
-                              >
-                                <Checkbox
-                                  checked={item.is_purchased}
-                                  onCheckedChange={(checked) => togglePurchased(item.id, checked as boolean)}
-                                />
-                                <div className="flex-1 min-w-0">
-                                  <div className={`font-medium ${item.is_purchased ? "line-through" : ""}`}>
-                                    {item.quantity} {item.unit} - {item.name}
-                                  </div>
-                                  {item.notes && <div className="text-sm text-muted-foreground">{item.notes}</div>}
-                                  <div className="text-xs text-muted-foreground mt-1">
-                                    Añadido por {item.added_by_profile?.display_name}
-                                    {item.is_purchased && item.purchased_by_profile && (
-                                      <span> • Comprado por {item.purchased_by_profile.display_name}</span>
-                                    )}
-                                  </div>
-                                </div>
+                      return (
+                        <div
+                          key={`${supermarket}-${sectionName}`}
+                          className={`${!isLastSection ? "border-b border-border/50" : ""}`}
+                        >
+                          <div className="p-4 bg-background/50">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  onClick={() => deleteItem(item.id)}
-                                  className="text-destructive hover:text-destructive"
+                                  onClick={() => toggleSection(supermarket, sectionName)}
+                                  className="p-1 h-auto"
                                 >
-                                  <Trash2 className="h-4 w-4" />
+                                  {isSectionExpanded ? (
+                                    <ChevronDown className="h-3 w-3" />
+                                  ) : (
+                                    <ChevronRight className="h-3 w-3" />
+                                  )}
                                 </Button>
+                                <h3 className="text-lg font-medium flex items-center gap-2">
+                                  <span className="text-xl">{section?.icon || "📦"}</span>
+                                  {sectionName}
+                                </h3>
                               </div>
-                            ))}
-                          </CardContent>
-                        )}
-                      </Card>
-                    )
-                  })}
-                </div>
-              )}
+                              <div className="flex items-center gap-2">
+                                <Badge variant="secondary">
+                                  {sectionPurchased}/{sectionTotal}
+                                </Badge>
+                                {supermarket !== "Sin asignar" && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => addItemWithSupermarket(supermarket, section?.id)}
+                                  >
+                                    <Plus className="h-3 w-3" />
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          {isSectionExpanded && (
+                            <div className="px-4 pb-4 space-y-3">
+                              {sectionItems.map((item: any) => (
+                                <div
+                                  key={item.id}
+                                  className={`flex items-center gap-3 p-3 rounded-lg border ${
+                                    item.is_purchased ? "bg-muted/50 opacity-60" : "bg-background"
+                                  }`}
+                                >
+                                  <Checkbox
+                                    checked={item.is_purchased}
+                                    onCheckedChange={(checked) => togglePurchased(item.id, checked as boolean)}
+                                  />
+                                  <div className="flex-1 min-w-0">
+                                    <div className={`font-medium ${item.is_purchased ? "line-through" : ""}`}>
+                                      {item.quantity} {item.unit} - {item.name}
+                                    </div>
+                                    {item.notes && <div className="text-sm text-muted-foreground">{item.notes}</div>}
+                                    <div className="text-xs text-muted-foreground mt-1">
+                                      Añadido por {item.added_by_profile?.display_name}
+                                      {item.is_purchased && item.purchased_by_profile && (
+                                        <span> • Comprado por {item.purchased_by_profile.display_name}</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => deleteItem(item.id)}
+                                    className="text-destructive hover:text-destructive"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </CardContent>
+                )}
+              </Card>
             </div>
           )
         })}
-
-        {totalItems === 0 && (
-          <Card>
-            <CardContent className="text-center py-12">
-              <ShoppingCart className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium mb-2">Lista vacía</h3>
-              <p className="text-muted-foreground mb-4">Añade productos para empezar tu lista de compras</p>
-              <Button onClick={() => setIsAddingItem(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Añadir primer producto
-              </Button>
-            </CardContent>
-          </Card>
-        )}
       </div>
+
+      {totalItems === 0 && (
+        <Card>
+          <CardContent className="text-center py-12">
+            <ShoppingCart className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+            <h3 className="text-lg font-medium mb-2">Lista vacía</h3>
+            <p className="text-muted-foreground mb-4">Añade productos para empezar tu lista de compras</p>
+            <Button onClick={() => setIsAddingItem(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Añadir primer producto
+            </Button>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }
