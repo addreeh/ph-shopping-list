@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { authManager, type User } from "@/lib/auth"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -10,7 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
 
 export default function DashboardPage() {
-  const [user, setUser] = useState<User | null>(null)
+  const [user, setUser] = useState<any>(null)
   const [activeList, setActiveList] = useState<any>(null)
   const [templatesCount, setTemplatesCount] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -18,13 +17,19 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const checkAuth = async () => {
-      const currentUser = await authManager.getCurrentUser()
-      if (!currentUser) {
+      const supabase = createClient()
+      const {
+        data: { user },
+        error,
+      } = await supabase.auth.getUser()
+
+      if (error || !user) {
         router.push("/auth/login")
         return
       }
-      setUser(currentUser)
-      await loadDashboardData(currentUser.id)
+
+      setUser(user)
+      await loadDashboardData(user.id)
       setLoading(false)
     }
 
@@ -51,7 +56,8 @@ export default function DashboardPage() {
   }
 
   const handleSignOut = async () => {
-    await authManager.logout()
+    const supabase = createClient()
+    await supabase.auth.signOut()
     router.push("/")
   }
 
@@ -77,7 +83,7 @@ export default function DashboardPage() {
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-3xl font-bold">Lista Familiar</h1>
-          <p className="text-muted-foreground">Bienvenido, {user.display_name}</p>
+          <p className="text-muted-foreground">Bienvenido, {user.email}</p>
           <div className="flex items-center gap-2 mt-2">
             <Badge variant="outline" className="text-xs">
               PWA Instalable
